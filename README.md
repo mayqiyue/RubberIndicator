@@ -7,9 +7,7 @@ A rubber style control that gives users a fun way to browse between many segment
 
 # How to install
 
-###CocoaPods:
-	pod 'RubberIndicator', '~> 1.0.0'
-###Manual: 
+###Manual:
 
 You can manually add the files in `RubberIndicator` to your Xcode project. RubberIndicator requires iOS 6 or higher.
 
