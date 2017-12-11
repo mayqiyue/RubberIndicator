@@ -173,7 +173,7 @@ typedef NS_ENUM(NSUInteger, MoveDirection) {
 - (void)tapGestureAction:(UITapGestureRecognizer *)tapGesture
 {
     NSUInteger index = [self tappedItemViewIndex:[tapGesture locationInView:tapGesture.view]];
-    if ([self shouldChangetoIndex:index]) {
+    if (index != NSNotFound && [self shouldChangetoIndex:index]) {
         [self changeToIndex:index];
     }
 }
@@ -338,10 +338,8 @@ static NSString *const kPropTransformRotationZ = @"transform.rotation.z";
 {
     UIImageView *imageView;
     
-    MoveDirection _lastDirection;
+    MoveDirection _direction;
     CGFloat _radius;
-    CGFloat _duration;
-    void(^_completionBlock)(void);
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -382,22 +380,14 @@ static NSString *const kPropTransformRotationZ = @"transform.rotation.z";
                   beginTime:(CFTimeInterval)beginTime
              withCompletion:(void (^)(void))completion
 {
-    _completionBlock = completion;
-    
-    // Move position
-    CABasicAnimation *positinAnimation = [CABasicAnimation animationWithKeyPath:kPropPosition];
-    positinAnimation.fromValue = [NSValue valueWithCGPoint:self.center];
-    positinAnimation.toValue = [NSValue valueWithCGPoint:position];
-    positinAnimation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
-    positinAnimation.duration = duration;
-    positinAnimation.beginTime = beginTime;
-    positinAnimation.removedOnCompletion = YES;
-    positinAnimation.delegate = self;
-    
-    [self.layer removeAllAnimations];
-    [self.layer addAnimation:positinAnimation forKey:@"bubblePosition"];
-    
-    self.layer.position = position;
+    [UIView animateWithDuration:duration
+                          delay:0.0f
+                        options:UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+                         self.center = position;
+                     } completion:^(BOOL finished) {
+                         completion();
+                     }];
 }
 
 - (void)translateWithRotateAndShake:(MoveDirection)direction
@@ -406,8 +396,7 @@ static NSString *const kPropTransformRotationZ = @"transform.rotation.z";
                           beginTime:(CFTimeInterval)beginTime
 {
     _radius = radius;
-    _lastDirection = direction;
-    _duration = duration;
+    _direction = direction;
     
     BOOL toleft = (direction == MoveLeft) ? true : false;
     UIBezierPath *movePath = [[UIBezierPath alloc] init];
@@ -455,10 +444,10 @@ static NSString *const kPropTransformRotationZ = @"transform.rotation.z";
     bubbleShakeAnim.beginTime = beginTime + duration;
     bubbleShakeAnim.repeatCount = 3;
     bubbleShakeAnim.duration = duration*0.1f;
-    bubbleShakeAnim.values = @[NSValuePointOffsetY(self.layer.position, -3.0f),
-                               NSValuePointOffsetY(self.layer.position, 3.0f),
-                               NSValuePointOffsetY(self.layer.position, -2.0f),
-                               NSValuePointOffsetY(self.layer.position, 2.0f),
+    bubbleShakeAnim.values = @[NSValuePointOffsetY(self.layer.position, -10.0f),
+                               NSValuePointOffsetY(self.layer.position, 10.0f),
+                               NSValuePointOffsetY(self.layer.position, -5.0f),
+                               NSValuePointOffsetY(self.layer.position, 5.0f),
                                NSValuePointOffsetY(self.layer.position, -1.0f),
                                NSValuePointOffsetY(self.layer.position, 0.0f)];
     bubbleShakeAnim.keyTimes = @[@(0.0f), @(0.2f), @(0.4f), @(0.6f), @(0.8f), @(1.0f)];
@@ -466,24 +455,29 @@ static NSString *const kPropTransformRotationZ = @"transform.rotation.z";
     bubbleShakeAnim.removedOnCompletion = YES;
     
     [self.layer removeAllAnimations];
-    [self.layer addAnimation:curveAnimaton forKey:@"fistStepAnimation"];
+    [self.layer addAnimation:curveAnimaton forKey:@"curveAnimaton"];
     [self.layer addAnimation:scaleAnimation forKey:@"scaleanimtion"];
     [self.layer addAnimation:rotate forKey:@"rotatez"];
     [self.layer addAnimation:bubbleShakeAnim forKey:@"Shake"];
     
-    self.center = CGPointMake(self.center.x + ((direction == MoveRight) ? radius *2.0f : -radius *2.0f), self.center.y);
+    self.center = CGPointMake(self.center.x + ((_direction == MoveRight) ? _radius *2.0f : -_radius *2.0f), self.center.y);
 }
 
 #pragma mark- Animation delegate
 
 - (void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag
 {
-    if (!flag) {
-        return;
-    }
-    if (_completionBlock) {
-        _completionBlock();
-        _completionBlock = nil;
+    return;
+    if ([anim isKindOfClass:CAKeyframeAnimation.class]) {
+        CAKeyframeAnimation *keyframeAnim = (id)anim;
+        if ([keyframeAnim.keyPath isEqualToString:kPropPosition]) {
+            [CATransaction begin];
+            [CATransaction setDisableActions:YES];
+            self.layer.opacity = 0;
+            self.center = CGPointMake(self.center.x + ((_direction == MoveRight) ? _radius *2.0f : -_radius *2.0f), self.center.y);
+            self.layer.opacity = 1;
+            [CATransaction commit];
+        }
     }
 }
 

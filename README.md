@@ -1,4 +1,4 @@
-RS3DSegmentedControl
+RubberIndicator
 ====================
 
 A rubber style control that gives users a fun way to browse between many segments.
